@@ -205,7 +205,7 @@ class AgentBrowser:
                     i += 1
                 if Settings.UseUpdater and self.last_result.lower().find("exception") == 0:
                     #Add code to update planner with screenshot of page
-                    self.page.screenshot(path='screenshot.png', type="png")
+                    self.page.screenshot(path='screenshot.png')
                     page_summary = VisionAgent.PromptVision("screenshot.png",self.website_name)
                     print("Summary of page: " + page_summary)
                     prompt = LLMAgent.update_plan(prompt, self.original_prompt, self.website_name, self.reasoning_history, page_summary)
