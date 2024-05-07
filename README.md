@@ -18,7 +18,7 @@ After completeing the setup. You will be prompted to enter a task<br>
 The task must utilize the controls available. Those are click, input, navigate to url, scroll down, enter and loop<br>
 The planner will break down the tasks into instructions which the command executor can interpret.<br><br>
 Example:<br>
-Goto facebook. Search for Burgers. Scroll down and click the first link related to Burgers.<br>
+Goto google. Search for Burgers. Scroll down and click the first link related to Burgers.<br>
 <br>
 You can watch your task be executed step by step by watching the browser.<br>
 When the task is finished you can start another task<br>
