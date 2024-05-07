@@ -30,12 +30,12 @@ step by step plan out your entire task. Make sure to put a new line after each i
 
 
 **How it works:** <br>
-This implementation uses a simple 4 LLM agent pipeline. The agents being the planner, the command executor and the planner updater.
+This implementation uses a simple 4 LLM agent pipeline. The agents being the planner, the command executor, the vision based webpage summarizer and the planner updater.
 The planner takes an intial prompt and creates a thought about how to go about completing the task. Then creates a list of instructions for the executor to carry out
 The executor sees a chrome accessibility tree of the current page. Including the ID, role and name of each element. The command executor then generates a thought 
 and decides which function best suits the instruction given and to which node it applies if necessary.
-The functions it can execute are Navigate(url), Click(ID), Input(ID,text), Enter(), Loop(), Sroll()
-Example:
+The functions it can execute are Navigate(url), Click(ID), Input(ID,text), Enter(), Loop(), Sroll()<br><br>
+Example: <br>
 Goto google. Search for Cars. Scroll down and click the first link related to cars
 <br><br>
 Which the planner may compile to<br>
@@ -45,7 +45,7 @@ Press enter<br>
 Scroll down<br>
 Click the first search result related to cars<br>
 <br>
-and then it may get executed as:
+and then it may get executed as: <br>
 Navigate(google.com)<br>
 Input(72,Cars)<br>
 Enter()<br>
