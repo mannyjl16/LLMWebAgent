@@ -7,7 +7,7 @@ A simple open source LLM Web automator using a 4 agent pipeline.
 2. install google chrome<br>
 3. install LMStudio and set up a local server with the "xtuner/llava-phi-3-mini-gguf" model for vision<br>
 4. install the necessary python dependencies. Dotenv, Groq, OpenAI, Playwright, etc<br>
-5. Create a env file named ".env" and set your groq api key in the .env file<br>
+5. Create a env file named ".env" and set your groq api key to GROQKEY in the .env file<br>
 6. Read(How to use)<br>
 7. run main.py<br>
 <br>
