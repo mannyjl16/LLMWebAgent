@@ -1,0 +1,4 @@
+#TODO
+
+1. Add a $ to the command executor prompt so it can intepret a string as improvised text
+2. Fix the context length variable
