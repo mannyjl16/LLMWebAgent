@@ -199,6 +199,19 @@ class AgentBrowser:
         """
         Inputs text into the specified node element.
 
+        List of LLM functions:
+            [X]Navigate(link) - navigates to a webpage and then gets the content
+            [X]Scroll() - Scrolls down a single chunk so the display will display next chunk
+            [x]Click(index) - clicks an element at index
+            [x]Input(index,string) - inputs desired text into a combobox,textarea,input etc
+            [Deprecated]Expand(index) - sets the node at index to expanded the children of the indexed node will now be visible
+            [Not implemented]Find(str) - uses a similarity search to look through ALL of the nodes in the body and returns a list of closest matching nodes(USE SORTING)
+            [Deprecated]Read(index) - Reads the text attribute at the index and passes it into the prompt
+            [X]Loop() - restarts the instruction loop
+            [Not implemented]Wait()
+            [Not implemented]PromptFeedBack('Question') - Ask the user for feedback on what to do next
+            [x]EndTask() - Finishes the task and starts the llm over
+
         Args:
             params (list): A list containing the node ID and text to input.
 
