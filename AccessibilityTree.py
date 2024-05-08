@@ -1,4 +1,3 @@
-from playwright.sync_api import sync_playwright
 from playwright._impl._cdp_session import CDPSession
 import Settings
 
@@ -8,6 +7,12 @@ class AccessibilityTree:
     client = None
     chunk_index = 0
     chunk_length = 200
+
+    def __init__(self,c:CDPSession,snapshot):
+        self.client = c
+        self.load_tree(snapshot)
+        self.chunk_index = 0
+
     #DO NOT USE get_node_children if the node has a children element instead use node["children"]
     def get_node_children(self, node):
         nodeId = node["nodeId"]
@@ -15,12 +20,13 @@ class AccessibilityTree:
             'id': nodeId,
         })['nodes']
 
-        children = []
-        for child in all_children:
-            #if not child["ignored"]:
-            if "backendDOMNodeId" in child and "backendDOMNodeId" in node and child["backendDOMNodeId"] != node["backendDOMNodeId"]:
-                children.append(child)
-        return children
+        return [
+            child
+            for child in all_children
+            if "backendDOMNodeId" in child
+            and "backendDOMNodeId" in node
+            and child["backendDOMNodeId"] != node["backendDOMNodeId"]
+        ]
 
     def getNodeByDomId(self,id,children=None):
         #Set default value to full tree
@@ -28,7 +34,7 @@ class AccessibilityTree:
             children = self.full_tree
         #recursively iterate through the tree until you find the node by its ID
         for child in children:
-            if child["backendDOMNodeId"] == id or child["backendDOMNodeId"] == int(id):
+            if child["backendDOMNodeId"] in [id, int(id)]:
                 return child
             #Search the children if they exist
             if "children" in child:
@@ -62,35 +68,30 @@ class AccessibilityTree:
         for child in children:
             out_string += ("    " * inline)
             is_focusable = self.is_focusable(child)
-            if not child["ignored"] and "role" in child:
+            if not child["ignored"] and "role" in child and (is_focusable or not Settings.OnlyFocusable):
                 node_line = ""
-                #if is_focusable or (not Settings.OnlyFocusable and ((child["role"]["value"] == "StaticText" or child["role"]["value"] == "heading") and Settings.TextShown)): #and is_focusable:
-                if (is_focusable or not Settings.OnlyFocusable):
-                    if "backendDOMNodeId" in child:
-                       #out_string += "id: " + str(child["backendDOMNodeId"]) + " "
-                        node_line += str(child["backendDOMNodeId"]) + " "
-                    if "role" in child:
-                        #out_string += "role: " + child["role"]["value"] + " "
-                        node_line += child["role"]["value"] + " "
-                        if "name" in child:
-                            #out_string += "name: " + child["name"]["value"] + " "
-                            node_line += child["name"]["value"] + " "
-
-                    #out_string += "focusable: " + str(is_focusable)
-                    out_string += node_line[:Settings.Max_Node_Size].replace("\n"," ")
-                    out_string += "\n"
-            #else:
-                #out_string += "Ignored"
-
+                if "backendDOMNodeId" in child:
+                   #out_string += "id: " + str(child["backendDOMNodeId"]) + " "
+                    node_line += str(child["backendDOMNodeId"]) + " "
+                #out_string += "role: " + child["role"]["value"] + " "
+                node_line += child["role"]["value"] + " "
+                if "name" in child:
+                    #out_string += "name: " + child["name"]["value"] + " "
+                    node_line += child["name"]["value"] + " "
+            
+                #out_string += "focusable: " + str(is_focusable)
+                out_string += node_line[:Settings.Max_Node_Size].replace("\n"," ")
+                out_string += "\n"
             if "expanded" in child and child["expanded"] and "children" in child:
                 out_string += self.to_string(child["children"],inline+1)
         return out_string
+    
     #Update the tree based on accessibility snapshot
     def update_tree(self,page):
         snapshot = page.accessibility.snapshot()
         self.load_tree(snapshot)
 
-#Outputs tree
+    #Outputs tree
     def get_output(self):
         full_string = self.to_string(self.full_tree)
         output_string = ""
@@ -107,15 +108,12 @@ class AccessibilityTree:
 
         output_string += "\n +" + str(len(output_lines)-lastLine) + " ...Nodes remaining"
 
-
-
-
-
         return output_string
+    
     #Recursively iterate through the children of a node and its descendents
     def get_all_children(self,node):
         children = self.get_node_children(node)
-        if not ("expanded" in node):
+        if "expanded" not in node:
             node["expanded"] = False
         for child in children:
 
@@ -128,7 +126,6 @@ class AccessibilityTree:
     def getStartPage(self, accessibility_snapshot):
         start_page = []
         rootAxNode = self.client.send('Accessibility.getRootAXNode')
-        rootNodeID = rootAxNode["node"]["nodeId"]
         all_nodes = self.client.send("Accessibility.getFullAXTree")["nodes"]
 
         for tree_node in accessibility_snapshot["children"]:
@@ -168,8 +165,7 @@ class AccessibilityTree:
         all_children = self.get_node_children(node)
         focusable_children = []
         for child in all_children:
-            is_focusable = self.is_focusable(child)
-            if is_focusable:
+            if is_focusable := self.is_focusable(child):
                 focusable_children.append(child)
         return focusable_children
 
@@ -199,9 +195,3 @@ class AccessibilityTree:
                         child = focus_child
                         break
             self.full_tree.append(child)
-
-
-    def __init__(self,c:CDPSession,snapshot):
-        self.client = c
-        self.load_tree(snapshot)
-        self.chunk_index = 0
