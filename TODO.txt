@@ -1,4 +1,7 @@
 #TODO
 
-1. Add a $ to the command executor prompt so it can intepret a string as improvised text
-2. Fix the context length variable
+1. If anyone has GPT4 or Claude API. You could try incorporating the update planner to each iteration under specific conditions.
+such that the plan would update everytime the website changes. Thus creating more dynamic generalized potential.
+
+2. Add an improvise function. So you can do things like generate new text everytime to put on a form.
+
