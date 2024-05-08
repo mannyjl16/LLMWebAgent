@@ -1,6 +1,8 @@
 # LLMWebAgent
 A simple open source LLM Web automator using a 4 agent pipeline.
 
+![Demo](https://github.com/mannyjl16/LLMWebAgent/blob/main/demo.gif)
+
 **Getting Started:**
 <br>
 1. download the files into a project folder<br>
