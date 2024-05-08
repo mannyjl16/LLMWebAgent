@@ -25,7 +25,7 @@ class AgentBrowser:
     #Functions
     def OutputPage(self,index=0):
 
-        return self.website_name + self.accessibility_tree.get_output()[:16000]
+        return self.website_name + self.accessibility_tree.get_output()[:Settings.Tree_Context_Cap]
     def Focus(self,id):
         self.client.send('DOM.focus', {'backendNodeId': int(id)})
 
