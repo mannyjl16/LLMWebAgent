@@ -12,6 +12,23 @@ import Settings
 
 
 class AgentBrowser:
+    """
+    AgentBrowser class for controlling a browser agent to interact with elements in an accessibility tree.
+
+    Functions:
+    - OutputPage(index=0): Get the output of the website's accessibility tree.
+    - Focus(id): Focus on a specific element by its ID.
+    - LoadPage(): Load the page and initialize the accessibility tree.
+    - Navigate(url="https://example.com"): Navigate to a specified URL.
+    - Expand(params): Expand a node in the accessibility tree.
+    - Scroll(): Scroll down the page.
+    - Click(params): Click on a specific element.
+    - Read(params): Read text content of a specific element.
+    - Enter(): Simulate pressing the Enter key.
+    - input_command(params): Input text into a specific element.
+    - ExecuteCommand(command): Execute the given command.
+    - AgentLoop(): Main loop for planner and command creation communication.
+    """
     browser = None
     page = None
     client = None
@@ -22,14 +39,49 @@ class AgentBrowser:
     website_name = "UNKNOWN SITE"
     original_prompt = ""
     reasoning_history = []
+
+    def __init__(self):
+        with sync_playwright() as p:
+            self.browser = p.chromium.launch(channel="chrome", headless=Settings.Headless)
+            self.page = self.browser.new_page()
+            self.AgentLoop()
+
+    def __exit__(self, *args):
+        self.browser.close()
+
     #Functions
     def OutputPage(self,index=0):
+        """
+        Return the output of the website's accessibility tree up to a specified character limit.
 
+        Args:
+            index (int): Index parameter for the output (default is 0).
+
+        Returns:
+            str: The concatenated website name and the truncated output of the accessibility tree.
+        """
         return self.website_name + self.accessibility_tree.get_output()[:Settings.Tree_Context_Cap]
+    
     def Focus(self,id):
+        """
+        Focus on a specific element by sending a DOM focus command with the backend node ID.
+
+        Load the page and initialize the client for interacting with the page context.
+        """
         self.client.send('DOM.focus', {'backendNodeId': int(id)})
 
     def LoadPage(self):
+        """
+        Initialize the client for interacting with the page context, enable accessibility, and create the accessibility tree.
+
+        Updates the current URL and sets the website name based on the root AX node.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         self.client = self.page.context.new_cdp_session(self.page)
         self.client.send("Accessibility.enable")
         snapshot = self.page.accessibility.snapshot()
@@ -37,33 +89,77 @@ class AgentBrowser:
         self.current_url = self.page.url
         rootAxNode = self.client.send('Accessibility.getRootAXNode')
         self.website_name = "Website: " + rootAxNode["node"]["name"]["value"] + '\n'
-    def Navigate(self,url="https://example.com"):
 
+    def Navigate(self,url="https://example.com"):
+        """
+        Navigate to a specified URL, load the page, and update the accessibility tree.
+
+        Args:
+            url (str): The URL to navigate to (default is "https://example.com").
+
+        Returns:
+            str: A message indicating the navigation to the specified URL.
+        """
         to_url = url.replace('"','').replace("'",'')
         self.page.goto(to_url)
         self.LoadPage()
-        return "Navigated to " + to_url
+        return f"Navigated to {to_url}"
+    
     def Expand(self,params):
+        """
+        Expand a node in the accessibility tree based on the provided parameters.
+
+        Args:
+            params (list): List containing the parameters for expanding the node.
+
+        Returns:
+            str: The result of expanding the specified node.
+        """
         return self.accessibility_tree.expand_node(params[0])
+    
     def Scroll(self):
+        """
+        Increment the chunk index for scrolling, scroll down the page, and handle reaching the end of the page.
+
+        Returns:
+            str: The result of the scroll operation or an exception message if the end of the page is reached.
+        """
         self.accessibility_tree.chunk_index += 1
 
-        current_line =  self.accessibility_tree.chunk_index * self.accessibility_tree.chunk_length
         scroll_to =  int(min([len(self.accessibility_tree.full_tree)-1,(self.accessibility_tree.chunk_index * self.accessibility_tree.chunk_length)]))# scroll half way
-        if len(self.accessibility_tree.full_tree) > scroll_to:
+        if len(self.accessib.ility_tree.full_tree) > scroll_to:
+            return self._extracted_from_Scroll_8(scroll_to)
+        self.accessibility_tree.chunk_index = 0
+        return "Exception: Failed to scroll end of page reached"
 
-            self.page.mouse.wheel(0, 250)
-            #if scroll_to < current_line:
-             #   self.page.keyboard.down('End')
-            scroll_node = self.accessibility_tree.full_tree[scroll_to]
-            scroll_id = scroll_node["backendDOMNodeId"]
-            self.client.send('DOM.scrollIntoViewIfNeeded', {'backendNodeId': int(scroll_id)})
-            time.sleep(2)  # Allow scrolled elements to load
-            return "Scrolled down"
-        else:
-            self.accessibility_tree.chunk_index = 0
-            return "Exception: Failed to scroll end of page reached"
+    # TODO Rename this here and in `Scroll`
+    def _extracted_from_Scroll_8(self, scroll_to):
+        """
+        Perform the scroll operation by simulating mouse wheel movement and scrolling to a specific node in the accessibility tree.
+
+        Args:
+            scroll_to (int): Index of the node to scroll to.
+
+        Returns:
+            str: A message indicating that the scroll operation was successful.
+        """
+        self.page.mouse.wheel(0, 250)
+        scroll_node = self.accessibility_tree.full_tree[scroll_to]
+        scroll_id = scroll_node["backendDOMNodeId"]
+        self.client.send('DOM.scrollIntoViewIfNeeded', {'backendNodeId': int(scroll_id)})
+        time.sleep(2)  # Allow scrolled elements to load
+        return "Scrolled down"
+    
     def Click(self,params):
+        """
+        Click on a specific element identified by the node ID in the accessibility tree.
+
+        Args:
+            params (list): List containing the node ID of the element to click.
+
+        Returns:
+            str: A message indicating that the element was clicked.
+        """
         node_id = params[0]
 
         current_node = self.accessibility_tree.getNodeByDomId(node_id)
@@ -71,18 +167,57 @@ class AgentBrowser:
         focused_element = self.page.evaluate_handle('document.activeElement')
         focused_element.click();
         return "Clicked " + current_node["name"]["value"]
+    
     def Read(self,params):
+        """
+        Read the text content of a specific element identified by the node ID in the accessibility tree.
+
+        Args:
+            params (list): List containing the node ID of the element to read.
+
+        Returns:
+            str: The text content read from the element.
+        """
         node_id = params[0]
 
-        current_node = self.accessibility_tree.getNodeByDomId(node_id)
         self.Focus(node_id)
         focused_element = self.page.evaluate_handle('document.activeElement')
-        return "Text Read: " + focused_element.text_content()
+        return f"Text Read: {focused_element.text_content()}"
+    
     def Enter(self):
+        """
+        Presses the Enter key on the currently focused element.
+
+        Returns:
+            str: A message indicating that Enter key was pressed.
+        """
         focused_element = self.page.evaluate_handle('document.activeElement')
         focused_element.press('Enter')
         return "Pressed Enter"
+    
     def input_command(self,params):
+        """
+        Inputs text into the specified node element.
+
+        List of LLM functions:
+            [X]Navigate(link) - navigates to a webpage and then gets the content
+            [X]Scroll() - Scrolls down a single chunk so the display will display next chunk
+            [x]Click(index) - clicks an element at index
+            [x]Input(index,string) - inputs desired text into a combobox,textarea,input etc
+            [Deprecated]Expand(index) - sets the node at index to expanded the children of the indexed node will now be visible
+            [Not implemented]Find(str) - uses a similarity search to look through ALL of the nodes in the body and returns a list of closest matching nodes(USE SORTING)
+            [Deprecated]Read(index) - Reads the text attribute at the index and passes it into the prompt
+            [X]Loop() - restarts the instruction loop
+            [Not implemented]Wait()
+            [Not implemented]PromptFeedBack('Question') - Ask the user for feedback on what to do next
+            [x]EndTask() - Finishes the task and starts the llm over
+
+        Args:
+            params (list): A list containing the node ID and text to input.
+
+        Returns:
+            str: A message indicating the text that was inputted.
+        """
         node_id = params[0]
 
         current_node = self.accessibility_tree.getNodeByDomId(node_id)
@@ -92,30 +227,19 @@ class AgentBrowser:
         focused_element = self.page.evaluate_handle('document.activeElement')
 
         focused_element.type(params[1])
-        return "Inputted the text " + params[1] + " to " + current_node["name"]["value"]
-
-
-
-
-
-        '''
-               List of LLM functions:
-               [X]Navigate(link) - navigates to a webpage and then gets the content
-               [X]Scroll() - Scrolls down a single chunk so the display will display next chunk
-               [x]Click(index) - clicks an element at index
-               [x]Input(index,string) - inputs desired text into a combobox,textarea,input etc
-               [Deprecated]Expand(index) - sets the node at index to expanded the children of the indexed node will now be visible
-               [Not implemented]Find(str) - uses a similarity search to look through ALL of the nodes in the body and returns a list of closest matching nodes(USE SORTING)
-               [Deprecated]Read(index) - Reads the text attribute at the index and passes it into the prompt
-               [X]Loop() - restarts the instruction loop
-               [Not implemented]Wait()
-               [Not implemented]PromptFeedBack('Question') - Ask the user for feedback on what to do next
-
-               [x]EndTask() - Finishes the task and starts the llm over
-
-               '''
+        return f"Inputted the text {params[1]} to " + current_node["name"]["value"]
+    
     #Find the desired command and extract the parameters for a function call
     def ExecuteCommand(self,command):
+        """
+        Executes the specified command by parsing it and calling the corresponding method.
+
+        Args:
+            command (str): The command to be executed.
+
+        Returns:
+            str: The result or message after executing the command.
+        """
         pattern = r"(?<=\().+?(?=\))"
         match = re.search(pattern, command)
         params = []
@@ -123,6 +247,7 @@ class AgentBrowser:
             extracted_string = match.group()
             params = extracted_string.split(",")
         try:
+            # TODO: use case/match instead
             if command.find('Input') != -1 and len(params) > 1:
 
                 return self.input_command(params)
@@ -144,10 +269,13 @@ class AgentBrowser:
                 return "Exception: Unknown Command"
         except Exception as e:
             print(e)
-            return "Exception failed to execute: " + command
+            return f"Exception failed to execute: {command}"
 
     #Main agent loop(Planner and command creator communication)
     def AgentLoop(self):
+        """
+        Executes a loop for the AI agent to interact with a web page based on given instructions and commands.
+        """
         while True:
             starting_page = "https://example.com"
             if Settings.Initial_Page is not None:
@@ -184,7 +312,13 @@ class AgentBrowser:
                     print("\nCommand Agent:\n" + command_plan)
                     command = command_plan[command_plan.lower().find("command:") + 8:]
 
-                    self.reasoning_history.append("Reasoning Step " + str(i) + ':\n' + instruction + '\n' + command_plan)
+                    self.reasoning_history.append(
+                        f"Reasoning Step {i}"
+                        + ':\n'
+                        + instruction
+                        + '\n'
+                        + command_plan
+                    )
                     if len(self.reasoning_history) > 15: # Prevent the reasoning history from getting to big
                         del self.reasoning_history[0]
                     if command.lower().find("exception") != -1: #Command maker decided it could not find the node
@@ -207,7 +341,7 @@ class AgentBrowser:
                     #Add code to update planner with screenshot of page
                     self.page.screenshot(path='screenshot.png')
                     page_summary = VisionAgent.PromptVision("screenshot.png",self.website_name)
-                    print("Summary of page: " + page_summary)
+                    print(f"Summary of page: {page_summary}")
                     prompt = LLMAgent.update_plan(prompt, self.original_prompt, self.website_name, self.reasoning_history, page_summary)
                     print("Update Plan Agent:\n" + prompt)
                     attempts += 1
@@ -215,18 +349,3 @@ class AgentBrowser:
 
                 input("Task completed! press any key to do another:")
                 break
-
-    def __init__(self):
-        with sync_playwright() as p:
-            self.browser = p.chromium.launch(channel="chrome", headless=Settings.Headless)
-            self.page = self.browser.new_page()
-            self.AgentLoop()
-
-    def __exit__(self, *args):
-        self.browser.close()
-
-
-
-
-
-

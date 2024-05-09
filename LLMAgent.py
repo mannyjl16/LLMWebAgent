@@ -3,9 +3,6 @@ from typing import Final
 from groq import Groq
 from dotenv import load_dotenv
 import os
-import AccessibilityDriver
-import Settings
-
 
 
 load_dotenv()
@@ -14,11 +11,23 @@ groq_client = Groq(api_key=GROQKEY)
 
 
 def prompt_groq(prompts,sysprompt="You are an AI assistant",modelName="llama3-8b-8192"):
+    """
+    Prompt the Groq chatbot with a list of prompts and return the response.
+
+    Args:
+        prompts (list): List of prompts to send to the chatbot.
+        sysprompt (str): System prompt to start the conversation.
+        modelName (str): Name of the model to use for the chatbot.
+
+    Returns:
+        str: The response from the chatbot.
+
+    Raises:
+        None
+    """
     msgs = [{"role": "system", "content": sysprompt}]
 
-    for prompt in prompts:
-        msgs.append(prompt)
-
+    msgs.extend(iter(prompts))
     completion = groq_client.chat.completions.create(
         model=modelName,
         messages=msgs,
@@ -30,7 +39,19 @@ def prompt_groq(prompts,sysprompt="You are an AI assistant",modelName="llama3-8b
 
 
 def create_planner(prompt):
-    PlannerPrompt = f'''You are a self operating web browser.
+    """
+    Create a planner for generating a list of instructions to carry out a given task and interact with a web browser.
+
+    Args:
+        prompt (str): The prompt to start the planner process.
+
+    Returns:
+        str: The response from the chatbot after generating the planner instructions.
+
+    Raises:
+        None
+    """
+    PlannerPrompt = '''You are a self operating web browser.
     Your task is to think through and then create a list of instructions to carry out the given task.
     Your instructions will be passed to a human.
     The human will be able to Click on links and buttons based on their name, Navigate to a new webpage based on url, Input to forms, Scroll down on the page, Press enter, and Loop back to the first instruction.
@@ -66,9 +87,24 @@ def create_planner(prompt):
     This example shows the proper format your output should be
 '''
     prompts = [{"role": "user", "content": prompt}]
-    response = prompt_groq(prompts, PlannerPrompt,modelName="llama3-70b-8192")
-    return response
+    return prompt_groq(prompts, PlannerPrompt,modelName="llama3-70b-8192")
 def update_plan(plan,original_prompt,webname="default",reasoning_steps=None,page_summary="No website shown"):
+    """
+    Update a planner by revising a list of instructions based on the last plan, current webpage layout, reasoning steps, and original task.
+
+    Args:
+        plan (str): The original plan to be updated.
+        original_prompt (str): The original prompt for the task.
+        webname (str): Name of the website being interacted with (default is "default").
+        reasoning_steps (list): List of reasoning steps to consider for the update.
+        page_summary (str): Summary of the current webpage layout (default is "No website shown").
+
+    Returns:
+        str: The response from the chatbot after updating the planner instructions.
+
+    Raises:
+        None
+    """
 
     update_prompt = f'''You are a self operating web browser.
     Your task is to revise a list of intructions to complete based on the last plan, the current webpage layout, the reasoning steps before and the Original Task.
@@ -106,79 +142,91 @@ def update_plan(plan,original_prompt,webname="default",reasoning_steps=None,page
     {original_prompt}
     
     '''
-    prompts = []
-    for reason_step in reasoning_steps:
-        prompts.append({"role": "user", "content": reason_step})
+    prompts = [
+        {"role": "user", "content": reason_step}
+        for reason_step in reasoning_steps
+    ]
     prompts.append({"role": "user", "content": plan})
-    response = prompt_groq(prompts, update_prompt,modelName="llama3-70b-8192")
-    return response
+    return prompt_groq(prompts, update_prompt,modelName="llama3-70b-8192")
 
 def create_commands(prompt,webname):
-    response = prompt_groq([{"role": "user", "content": prompt}],
-                           f'''
-This is an accessibility tree, it has elements with their index, name and role.
-Your task is to form a thought about the instruction and create a single command based on the single intruction you were given
-if you want to click something output 'Click(index)' it takes one parameter the index of the element
+    """
+    Create commands based on a given prompt and website name to interact with elements in an accessibility tree.
 
-Command Example:
-88 button Login
-71 link Sign Up
-Instruction: Click the login button
-Thought:
-Ok so based on my two options link Sign up and button login. I would say that although similar, 88 button login is my best option to click 
-Command: Click(88)
-if you want to Input to a field type 'Input(index,'desired_text')' it takes two parameters the index of the element and the text to send
-Do not put the desired text in quotes unless explicitly specified to
+    Args:
+        prompt (str): The prompt to generate commands for.
+        webname (str): Name of the website being interacted with.
 
-Command Example:
-22 combobox Fin stuff
-875 link More options
-Instruction:
-Input Burger into the search bar
-Thought:
-Ok so based on the accessibility tree I can see that theres two options being combobox Find Stuff and link More options
-Since 22 combobox Find Stuff is an element I can input text into. 
-And its name implies a similar meaning I will assume this is the closest match to input Burger into
-Command:
-Input(22,Burger)
+    Returns:
+        str: The response from the chatbot after generating the commands.
 
-if you are asked to scroll down type 'Scroll()' Also do this if you dont see the node being referred to
-If you are asked to press enter type 'Enter()'
-If you are asked to go to a website type 'Navigate(desired_url)' it takes one parameter which is the url
+    Raises:
+        None
+    """
+    return prompt_groq(
+        [{"role": "user", "content": prompt}],
+        f'''This is an accessibility tree, it has elements with their index, name and role.
+        Your task is to form a thought about the instruction and create a single command based on the single intruction you were given
+        if you want to click something output 'Click(index)' it takes one parameter the index of the element
 
-Command Example:
-22 StaticText BestWorld
-55 button See more options
-Instruction:
-Navigate to https://google.com
-Thought:
-Since the instruction is to navigate to https://google.com I will do just that.
-Command: Navigate(https://google.com)
+        Command Example:
+        88 button Login
+        71 link Sign Up
+        Instruction: Click the login button
+        Thought:
+        Ok so based on my two options link Sign up and button login. I would say that although similar, 88 button login is my best option to click 
+        Command: Click(88)
+        if you want to Input to a field type 'Input(index,'desired_text')' it takes two parameters the index of the element and the text to send
+        Do not put the desired text in quotes unless explicitly specified to
 
-if the instruction is to end the task output 'EndTask()'
-If you do not see anything that is related enough output 'Exception: Could not find the node'
+        Command Example:
+        22 combobox Fin stuff
+        875 link More options
+        Instruction:
+        Input Burger into the search bar
+        Thought:
+        Ok so based on the accessibility tree I can see that theres two options being combobox Find Stuff and link More options
+        Since 22 combobox Find Stuff is an element I can input text into. 
+        And its name implies a similar meaning I will assume this is the closest match to input Burger into
+        Command:
+        Input(22,Burger)
 
-Command Example:
-22 StaticText BestWorld
-55 button See more options
-77 combobox Search
-Instruction:
-Input "Hot dogs" into the document
-Thought:
-Based on the accessibility tree I can see that there is nothing explicitly related to inputting into a document.
-Although there is a combobox called search. Its name implies it has an entirely different function to what the instruction intends.
-There for I will create an exception.
-Command:
-Exception: Could not find the node
+        if you are asked to scroll down type 'Scroll()' Also do this if you dont see the node being referred to
+        If you are asked to press enter type 'Enter()'
+        If you are asked to go to a website type 'Navigate(desired_url)' it takes one parameter which is the url
 
-Start by creating a thought and give it the exact title Thought:
-If the instruction asks you to click or input to an element. Then work out which of the elements are most likely to correspond with the instruction based on their role and name
-Then determine the best possible option to incorporate into your output
+        Command Example:
+        22 StaticText BestWorld
+        55 button See more options
+        Instruction:
+        Navigate to https://google.com
+        Thought:
+        Since the instruction is to navigate to https://google.com I will do just that.
+        Command: Navigate(https://google.com)
 
-Next create a command and give it the exact title Command:
-Your command should only be a single command to execute with no commentary as concise as possible
-Current Site is: {webname}
-Write your thought and command to execute now
-'''
-                           )
-    return response
+        if the instruction is to end the task output 'EndTask()'
+        If you do not see anything that is related enough output 'Exception: Could not find the node'
+
+        Command Example:
+        22 StaticText BestWorld
+        55 button See more options
+        77 combobox Search
+        Instruction:
+        Input "Hot dogs" into the document
+        Thought:
+        Based on the accessibility tree I can see that there is nothing explicitly related to inputting into a document.
+        Although there is a combobox called search. Its name implies it has an entirely different function to what the instruction intends.
+        There for I will create an exception.
+        Command:
+        Exception: Could not find the node
+
+        Start by creating a thought and give it the exact title Thought:
+        If the instruction asks you to click or input to an element. Then work out which of the elements are most likely to correspond with the instruction based on their role and name
+        Then determine the best possible option to incorporate into your output
+
+        Next create a command and give it the exact title Command:
+        Your command should only be a single command to execute with no commentary as concise as possible
+        Current Site is: {webname}
+        Write your thought and command to execute now
+        ''',
+    )

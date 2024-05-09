@@ -1,12 +1,11 @@
 # Adapted from OpenAI's Vision example
 from openai import OpenAI
 import base64
-import requests
+
 # Point to the local server
 client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
 
 #path = input("Enter a local filepath to an image: ")
-
 
 def PromptVision(path,website_name):
 
@@ -15,7 +14,7 @@ def PromptVision(path,website_name):
   try:
     image = open(path.replace("'", ""), "rb").read()
     base64_image = base64.b64encode(image).decode("utf-8")
-  except:
+  except Exception:
     print("Couldn't read the image. Make sure the path is correct and the file exists.")
     exit()
 
